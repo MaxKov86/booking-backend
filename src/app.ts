@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { availabilityRouter } from './routes/availability.routes';
+import { bookingsRouter } from './routes/bookings.routes';
 
 export const app = express();
 
@@ -16,8 +17,9 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/availability', availabilityRouter);
+app.use('/api/bookings', bookingsRouter);
 
-// Роути bookings/auth підключаться тут на кроках 3-4
+// Роут auth підключиться тут на кроці 4
 
 /**
  * Централізований error-handler — 4 аргументи (err, req, res, next)
