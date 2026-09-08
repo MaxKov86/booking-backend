@@ -5,6 +5,7 @@ import { Availability } from '../models/Availability';
 import { User } from '../models/User';
 import { generateAvailableSlots } from '../services/slotGenerator';
 import { sendBookingNotifications } from '../services/emailService';
+import { requireAuth, requireOwnership } from '../middleware/auth.middleware';
 
 export const bookingsRouter = Router();
 
@@ -112,12 +113,8 @@ bookingsRouter.post('/', async (req, res) => {
   }
 });
 
-/**
- * ЗАСТЕРЕЖЕННЯ: поки БЕЗ авторизації — auth.middleware на кроці 4
- * замінить :userId на req.user.id, інакше будь-хто, знаючи userId,
- * побачить чужі бронювання з персональними даними клієнтів.
- */
-bookingsRouter.get('/:userId', async (req, res) => {
+/** ЗАХИЩЕНИЙ — бронювання містять персональні дані клієнтів */
+bookingsRouter.get('/:userId', requireAuth, requireOwnership, async (req, res) => {
   const bookings = await Booking.find({ userId: req.params.userId })
     .sort({ startsAt: 1 })
     .limit(200);
@@ -125,16 +122,25 @@ bookingsRouter.get('/:userId', async (req, res) => {
   res.json(bookings);
 });
 
-bookingsRouter.patch('/:bookingId/cancel', async (req, res) => {
-  const booking = await Booking.findByIdAndUpdate(
-    req.params.bookingId,
-    { $set: { status: 'cancelled' } },
-    { new: true }
-  );
+/**
+ * ЗАХИЩЕНИЙ. requireOwnership тут НЕ підходить — він порівнює
+ * req.params.userId, а в цьому URL його немає (є :bookingId).
+ * Тому власність перевіряється через сам документ: спочатку знаходимо
+ * бронювання, потім звіряємо його userId з залогиненим.
+ */
+bookingsRouter.patch('/:bookingId/cancel', requireAuth, async (req, res) => {
+  const booking = await Booking.findById(req.params.bookingId);
 
   if (!booking) {
     return res.status(404).json({ message: 'Booking not found' });
   }
 
-  res.json(booking);
+  if (booking.userId.toString() !== req.user!.userId) {
+    return res.status(403).json({ message: 'Немає доступу до чужих даних' });
+  }
+
+  booking.status = 'cancelled';
+  await booking.save();
+
+  return res.json(booking);
 });

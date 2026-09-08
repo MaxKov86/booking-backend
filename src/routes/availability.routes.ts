@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Availability } from '../models/Availability';
 import { Booking } from '../models/Booking';
 import { generateAvailableSlots } from '../services/slotGenerator';
+import { requireAuth, requireOwnership } from '../middleware/auth.middleware';
 
 export const availabilityRouter = Router();
 
@@ -22,11 +23,9 @@ const upsertAvailabilitySchema = z.object({
 });
 
 /**
- * ЗАСТЕРЕЖЕННЯ: :userId тут поки НЕ захищений автентифікацією —
- * auth.middleware з'явиться на кроці 4. Наразі будь-хто, хто знає
- * userId, технічно може редагувати чужий розклад. Прийнятно для
- * розробки одного роута за раз, але ОБОВ'ЯЗКОВО закрити перед реальним
- * деплоєм (замінити :userId в PUT на req.user.id з JWT-мідлвари).
+ * GET лишається ПУБЛІЧНИМ навмисно — фронтенду публічної сторінки
+ * бронювання треба знати slotDurationMinutes/робочі години, щоб
+ * коректно відмалювати календар ще до вибору дати.
  */
 availabilityRouter.get('/:userId', async (req, res) => {
   const availability = await Availability.findOne({ userId: req.params.userId });
@@ -38,7 +37,8 @@ availabilityRouter.get('/:userId', async (req, res) => {
   res.json(availability);
 });
 
-availabilityRouter.put('/:userId', async (req, res) => {
+/** ЗАХИЩЕНИЙ — редагувати розклад може лише його власник */
+availabilityRouter.put('/:userId', requireAuth, requireOwnership, async (req, res) => {
   const parsed = upsertAvailabilitySchema.safeParse(req.body);
 
   if (!parsed.success) {
