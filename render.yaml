@@ -3,10 +3,17 @@ services:
     name: booking-backend
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
+    # --include=dev ОБОВ'ЯЗКОВИЙ: NODE_ENV=production (нижче) змушує npm
+    # пропускати devDependencies, а саме там лежать typescript і @types/*,
+    # без яких `tsc` не скомпілює проект. Без цього прапорця збірка падає
+    # з помилками "Cannot find name 'process'" / "Cannot find name 'console'".
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
+      # NODE_ENV=production потрібен рантайму (наша логіка в server.ts
+      # покладається на нього), але саме він і ламає встановлення
+      # devDependencies на етапі збірки — звідси --include=dev вище
       - key: NODE_ENV
         value: production
       # Решту (MONGODB_URI, JWT_SECRET, CORS_ORIGIN, SMTP_*) задай
