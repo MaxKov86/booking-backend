@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: booking-backend
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Решту (MONGODB_URI, JWT_SECRET, CORS_ORIGIN, SMTP_*) задай
+      # вручну в Render Dashboard -> Environment. sync: false означає
+      # "не братимемо значення з цього файлу" — секрети не повинні
+      # потрапляти в git
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
